@@ -66,8 +66,8 @@ const char *cur_test_prefix = NULL; /**< prefix of the current test group */
 const char *cur_test_name = NULL;
 
 #ifdef WIN32
-/** Pointer to argv[0] for win32. */
-static char *commandname = NULL;
+/* Copy of argv[0] for win32. */
+static char commandname[MAX_PATH+1];
 #endif
 
 static void usage(struct testgroup_t *groups, int list_groups)
@@ -292,17 +292,11 @@ tinytest_main(int c, const char **v, struct testgroup_t *groups)
 
 #ifdef WIN32
         const char *sp = strrchr(v[0], '.');
-        if (sp && !stricmp(sp, ".exe")) {
-		commandname = strdup(v[0]);
-	} else {
-		size_t n = strlen(v[0]) + 5;
-		if ((commandname = malloc(n)) != NULL)
-			snprintf(commandname, n, "%s.exe", v[0]);
-        }
-	if (!commandname) {
-		perror("malloc");
-		return 1;
-	}
+	const char *extension = "";
+        if (!sp || stricmp(sp, ".exe"))
+		extension = ".exe"; /* Add an exe so CreateProcess will work */
+	snprintf(commandname, sizeof(commandname), "%s%s", v[0], extension);
+	commandname[MAX_PATH]='\0';
 #endif
 	for (i=1; i<c; ++i) {
 		if (v[i][0] == '-') {
@@ -325,7 +319,6 @@ tinytest_main(int c, const char **v, struct testgroup_t *groups)
 				usage(groups, 1);
 			} else {
 				printf("Unknown option %s.  Try --help\n",v[i]);
-                                free (commandname);
 				return -1;
 			}
 		} else {
@@ -339,7 +332,6 @@ tinytest_main(int c, const char **v, struct testgroup_t *groups)
 			}
 			if (!_tinytest_set_flag(groups, test, flag)) {
 				printf("No such test as %s!\n", v[i]);
-                                free (commandname);
 				return -1;
 			}
 		}
@@ -366,8 +358,6 @@ tinytest_main(int c, const char **v, struct testgroup_t *groups)
 		       n_bad+n_ok,n_skipped);
 	else if (opt_verbosity >= 1)
 		printf("%d tests ok.  (%d skipped)\n", n_ok, n_skipped);
-
-        free (commandname);
 
 	return (n_bad == 0) ? 0 : 1;
 }
